@@ -13,7 +13,7 @@ const io = new Server(server, {
   }
 });
 
-app.use(express.static('./')); 
+app.use(express.static('public'));
 
 // --- 2. GAME STATE ---
 // This is the "single source of truth" for your game's shared data.
