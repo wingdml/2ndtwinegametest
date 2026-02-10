@@ -1,51 +1,69 @@
-// --- 1. SETUP ---
-// Import necessary libraries
+// --- server.js (FINAL, ROBUST VERSION) ---
+
+// Import required packages
 const express = require('express');
 const http = require('http');
-const { Server } = require('socket.io');
-// Create the app and server
+const { Server } = require("socket.io");
+const path = require('path');
+
+// Setup server
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: {
-    origin: "*", // Allow connections from any origin
-    methods: ["GET", "POST"]
-  }
+    cors: {
+        origin: "*", // Allow connections from anywhere
+        methods: ["GET", "POST"]
+    }
 });
 
-app.use(express.static('public'));
+const PORT = process.env.PORT || 3000;
 
-// --- 2. GAME STATE ---
-// This is the "single source of truth" for your game's shared data.
-const gameState = {
-  protagonist: "human"
-  // You could add more shared variables here later, e.g.:
-  // score: 0,
-  // worldEvent: "none"
+// --- GLOBAL GAME STATE ---
+// This is the single source of truth for the entire game.
+let gameState = {
+    protagonist: "human" // The default value when the server first starts.
 };
 
+// --- REAL-TIME LOGIC ---
 io.on('connection', (socket) => {
-    console.log('A user connected. Sending them the current state.');
+    console.log(`A user connected: ${socket.id}`);
 
-    // --- THIS IS THE NEW LINE ---
-    // Immediately send the current gameState to the newly connected client.
+    // 1. WELCOME NEW PLAYER: Immediately send them the current state.
     socket.emit('stateUpdated', gameState);
-    // ----------------------------
+    console.log(`Sent initial state to ${socket.id}:`, gameState);
 
-    socket.on('updateState', (newState) => {
-        gameState = { ...gameState, ...newState };
-        console.log('State updated:', gameState);
-        io.emit('stateUpdated', gameState); // Broadcast to all clients
+    // 2. LISTEN FOR UPDATES: This is the critical part.
+    socket.on('updateState', (data) => {
+        console.log(`Received update from ${socket.id}:`, data);
+
+        // --- THE FIX IS HERE ---
+        // We will now safely and explicitly update the state.
+        // This prevents crashes if the 'data' object is weird.
+        if (data && data.protagonist) {
+            gameState.protagonist = data.protagonist;
+
+            // 3. BROADCAST CHANGE: Announce the new, updated state to EVERYONE.
+            console.log('Broadcasting new global state:', gameState);
+            io.emit('stateUpdated', gameState);
+        } else {
+            console.log('Received malformed update. Ignoring.');
+        }
     });
 
+    // Handle disconnects
     socket.on('disconnect', () => {
-        console.log('user disconnected');
+        console.log(`A user disconnected: ${socket.id}`);
     });
 });
 
-// --- 4. START THE SERVER ---
-// Use the port provided by Render, or 3000 for local testing.
-const PORT = process.env.PORT || 3356;
-server.listen(PORT, () => { console.log(`Server running on port ${PORT}`);
-console.log(`Server is running and listening on port ${PORT}`);
+// Serve the static Twine game file
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Start listening
+server.listen(PORT, () => {
+    console.log(`Server is running. Initial state:`, gameState);
+    console.log(`Listening on *:${PORT}`);
 });
