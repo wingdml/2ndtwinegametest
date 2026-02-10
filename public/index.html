@@ -106,24 +106,45 @@ var LZString=function(){var r=String.fromCharCode,o="ABCDEFGHIJKLMNOPQRSTUVWXYZa
 		<div id="init-lacking"><p>Browser lacks capabilities required to play.</p><p>Upgrade or switch to another browser.</p></div>
 		<div id="init-loading"><div>Loading&hellip;</div></div>
 	</div>
-	<tw-storydata name="simplified" startnode="1" creator="Twine" creator-version="2.11.1" format="SugarCube" format-version="2.37.3" ifid="7BD3DD94-39F7-4A24-A141-61EA9ACCF0D6" options="" tags="" zoom="1" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css"></style><script role="script" id="twine-user-script" type="text/twine-javascript">// Helper function to send an OBJECT
+	<tw-storydata name="simplified" startnode="1" creator="Twine" creator-version="2.11.1" format="SugarCube" format-version="2.37.3" ifid="7BD3DD94-39F7-4A24-A141-61EA9ACCF0D6" options="" tags="" zoom="1" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css"></style><script role="script" id="twine-user-script" type="text/twine-javascript">// --- 1. HELPER FUNCTION ---
+// This is the function that your <<run>> macro will call.
+// It must be defined here in Story JavaScript.
 function updateProtagonistOnServer(newValue) {
-    if (window.socket) {
-        // Sends 'updateState' with an OBJECT
-        window.socket.emit('updateState', { protagonist: newValue }); 
-    }
+  // Check if the socket connection exists before trying to use it
+  if (window.socket) {
+    // Send the 'updateState' message to the server with an object
+    window.socket.emit('updateState', { protagonist: newValue });
+    console.log('Sent update to server:', { protagonist: newValue });
+  } else {
+    console.error('Socket not connected. Cannot send update.');
+  }
 }
 
-// Connect
-window.socket = io("https://twondtwinegametest-1.onrender.com");
+// --- 2. CONNECT TO SERVER ---
+// Establish the connection as soon as the game loads.
+// Replace the URL with your actual Render URL.
+try {
+  window.socket = io("https://twondtwinegametest-1.onrender.com");
+} catch(e) {
+  console.error("Could not connect to the server. Make sure the socket.io library is included.", e);
+}
 
-// Listens for 'stateUpdated'
-window.socket.on('stateUpdated', (newGameState) => {
-    // Variable is 'protagonist' (lowercase, matches server)
+
+// --- 3. LISTEN FOR UPDATES ---
+// This part listens for 'stateUpdated' messages coming FROM the server.
+if (window.socket) {
+  window.socket.on('stateUpdated', (newGameState) => {
+    console.log('Received new state from server:', newGameState);
+    
+    // Update the Twine variable with the new data from the server.
+    // Make sure the variable is lowercase ('protagonist') to match the server.
     State.variables.protagonist = newGameState.protagonist;
-    // Refresh silently
-    Engine.play(passage(), true); 
-});</script><tw-passagedata pid="1" name="Start" tags="" position="475,200" size="100,100">:: Start
+    
+    // Silently refresh the current passage to show the new variable value.
+    // The 'true' prevents it from creating a new entry in the history.
+    Engine.play(passage(), true);
+  });
+}</script><tw-passagedata pid="1" name="Start" tags="" position="475,200" size="100,100">:: Start
 
 You are a $protagonist.
 
