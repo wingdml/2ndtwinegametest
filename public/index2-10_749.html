@@ -132,24 +132,10 @@ var LZString=function(){var r=String.fromCharCode,o="ABCDEFGHIJKLMNOPQRSTUVWXYZa
 function setupSocket() {
     // --- Helper Function ---
     function updateProtagonistOnServer(newValue) {
-      // --- Listen for Updates (FINAL VERSION) ---
-if (window.socket) {
-  window.socket.on('stateUpdated', (newGameState) => {
-    console.log('Received new state from server:', newGameState);
-    
-    // Check if this is the very first state we've received
-    const isFirstUpdate = State.variables.serverStateReceived === false;
-
-    // ALWAYS update the variable in the background
-    State.variables.protagonist = newGameState.protagonist;
-
-    // If it's the first update, fire our custom event to unlock the story
-    if (isFirstUpdate) {
-        console.log("This is the initial state. Unlocking story.");
-        $(document).trigger(':serverStateReady');
-    }
-  });
-} else {
+      if (window.socket) {
+        window.socket.emit('updateState', { protagonist: newValue });
+        console.log('Sent update to server:', { protagonist: newValue });
+      } else {
         console.error('Socket not connected. Cannot send update.');
       }
     }
@@ -173,7 +159,10 @@ if (window.socket) {
     }
 }</script><tw-passagedata pid="1" name="Start" tags="" position="475,200" size="100,100">:: Start
 
-&lt;&lt;set $localProtagonist to $protagonist&gt;&gt;
+&lt;&lt;if ndef $protagonist&gt;&gt;
+    &lt;&lt;set $protagonist to &quot;human&quot;&gt;&gt; /* Only set default if it&#39;s the very first time */
+&lt;&lt;/if&gt;&gt;
+&lt;&lt;set $localProtagonist to $protagonist&gt;&gt; /* Sync local choice with global choice */
 
 The current GLOBAL protagonist is: $protagonist
 Your CURRENT choice for the story is: $localProtagonist
@@ -209,32 +198,7 @@ Other people might see a different global value, but your adventure is your own.
 The current GLOBAL value on the server is: $protagonist
 
 [[Go back to Start to sync with the global state|Start]]
-[[Make another choice|EditProtagonist]]</tw-passagedata><tw-passagedata pid="4" name="StoryInit" tags="" position="600,175" size="100,100">:: StoryInit
-
-/* This tag prevents this passage from appearing in the story history. */
-&lt;&lt;nobr&gt;&gt;
-    &lt;&lt;set $serverStateReceived to false&gt;&gt;
-    &lt;&lt;script&gt;&gt;
-        /* 
-           This is a &quot;listener&quot;. We are telling Twine:
-           &quot;When the event &#39;serverStateReady&#39; happens, set the Twine variable
-           $serverStateReceived to true and then move to the &#39;Start&#39; passage.&quot;
-        */
-        $(document).on(&#39;:serverStateReady&#39;, function () {
-            State.variables.serverStateReceived = true;
-            Engine.play(&#39;Start&#39;);
-        });
-    &lt;&lt;/script&gt;&gt;
-&lt;&lt;/nobr&gt;&gt;</tw-passagedata><tw-passagedata pid="5" name="PassageReady" tags="" position="725,175" size="100,100">:: PassageReady
-
-&lt;&lt;if passage() is &quot;Start&quot; and $serverStateReceived is false&gt;&gt;
-    &lt;&lt;replace &quot;#story-caption&quot;&gt;&gt;
-        /* You can optionally hide the UI here */
-    &lt;&lt;/replace&gt;&gt;
-    &lt;&lt;replace &quot;#passages&quot;&gt;&gt;
-        &lt;div class=&quot;loading-screen&quot;&gt;Loading from server...&lt;/div&gt;
-    &lt;&lt;/replace&gt;&gt;
-&lt;&lt;/if&gt;&gt;</tw-passagedata></tw-storydata>
+[[Make another choice|EditProtagonist]]</tw-passagedata></tw-storydata>
 	<script src="/socket.io/socket.io.js"></script>
 
   <script id="script-sugarcube" type="text/javascript">

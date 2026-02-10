@@ -25,20 +25,22 @@ const gameState = {
 };
 
 io.on('connection', (socket) => {
-    // Immediately send the current state to the new player
-    socket.emit('stateUpdated', gameState); // Note the event name
+    console.log('A user connected. Sending them the current state.');
 
-    // Listens for 'updateState' with an OBJECT
-    socket.on('updateState', (data) => {
-        // Merge the new data into the master state
-        Object.assign(gameState, data); 
-        // Broadcast the FULL new state to EVERYONE
-        io.emit('stateUpdated', gameState); 
-        console.log('Broadcast new state to all players:', gameState);
+    // --- THIS IS THE NEW LINE ---
+    // Immediately send the current gameState to the newly connected client.
+    socket.emit('stateUpdated', gameState);
+    // ----------------------------
+
+    socket.on('updateState', (newState) => {
+        gameState = { ...gameState, ...newState };
+        console.log('State updated:', gameState);
+        io.emit('stateUpdated', gameState); // Broadcast to all clients
     });
+
     socket.on('disconnect', () => {
-    console.log(`A player disconnected: ${socket.id}`);
-  });
+        console.log('user disconnected');
+    });
 });
 
 // --- 4. START THE SERVER ---
