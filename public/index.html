@@ -228,9 +228,6 @@ The current GLOBAL value on the server is: $protagonist
 &lt;&lt;/nobr&gt;&gt;</tw-passagedata><tw-passagedata pid="5" name="PassageReady" tags="" position="725,175" size="100,100">:: PassageReady
 
 &lt;&lt;if passage() is &quot;Start&quot; and $serverStateReceived is false&gt;&gt;
-    &lt;&lt;replace &quot;#story-caption&quot;&gt;&gt;
-        /* You can optionally hide the UI here */
-    &lt;&lt;/replace&gt;&gt;
     &lt;&lt;replace &quot;#passages&quot;&gt;&gt;
         &lt;div class=&quot;loading-screen&quot;&gt;Loading from server...&lt;/div&gt;
     &lt;&lt;/replace&gt;&gt;
