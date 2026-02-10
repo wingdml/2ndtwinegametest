@@ -106,71 +106,54 @@ var LZString=function(){var r=String.fromCharCode,o="ABCDEFGHIJKLMNOPQRSTUVWXYZa
 		<div id="init-lacking"><p>Browser lacks capabilities required to play.</p><p>Upgrade or switch to another browser.</p></div>
 		<div id="init-loading"><div>Loading&hellip;</div></div>
 	</div>
-	<tw-storydata name="simplified" startnode="1" creator="Twine" creator-version="2.11.1" format="SugarCube" format-version="2.37.3" ifid="7BD3DD94-39F7-4A24-A141-61EA9ACCF0D6" options="" tags="" zoom="1" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css"></style><script role="script" id="twine-user-script" type="text/twine-javascript">// ====================================================================
-// --- PART 1: Dynamically load the Socket.IO library ---
-// ====================================================================
-// This code creates a <script> tag and adds it to the HTML <head>
-// This is the correct way to add external scripts in SugarCube
-(function () {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
-    script.onload = function () {
-        // This function will run AFTER the script has loaded
-        console.log("Socket.IO library loaded successfully.");
-        setupSocket(); // Now we can safely set up our socket connection
-    };
-    script.onerror = function () {
-        console.error("Failed to load the Socket.IO library.");
-    };
-    document.head.appendChild(script);
-}());
-
-
-// ====================================================================
-// --- PART 2: All your previous socket code, wrapped in a function ---
-// ====================================================================
+	<tw-storydata name="simplified" startnode="1" creator="Twine" creator-version="2.11.1" format="SugarCube" format-version="2.37.3" ifid="7BD3DD94-39F7-4A24-A141-61EA9ACCF0D6" options="" tags="" zoom="1" hidden><style role="stylesheet" id="twine-user-stylesheet" type="text/twine-css"></style><script role="script" id="twine-user-script" type="text/twine-javascript">/* --- SETUP SOCKET CONNECTION --- */
+// We use 'window.socket' to make it a global variable accessible everywhere.
+// This function will be called by Twine's StoryInit passage.
 function setupSocket() {
-    // --- Helper Function ---
-    function updateProtagonistOnServer(newValue) {
-      // --- Listen for Updates (FINAL VERSION) ---
-if (window.socket) {
-  window.socket.on('stateUpdated', (newGameState) => {
-    console.log('Received new state from server:', newGameState);
-    
-    // Check if this is the very first state we've received
-    const isFirstUpdate = State.variables.serverStateReceived === false;
+  try {
+    // Only connect if we haven't already. This prevents multiple connections.
+    if (!window.socket) {
+      console.log("Attempting to connect to the server...");
+      // Replace with your actual Render URL
+      const socket = io("https://twondtwinegametest-1.onrender.com");
+      window.socket = socket;
 
-    // ALWAYS update the variable in the background
-    State.variables.protagonist = newGameState.protagonist;
-
-    // If it's the first update, fire our custom event to unlock the story
-    if (isFirstUpdate) {
-        console.log("This is the initial state. Unlocking story.");
-        $(document).trigger(':serverStateReady');
-    }
-  });
-} else {
-        console.error('Socket not connected. Cannot send update.');
-      }
-    }
-    // Make the function available to Twine's <<run>> macro
-    window.updateProtagonistOnServer = updateProtagonistOnServer;
-
-    // --- Connect to Server ---
-    try {
-      window.socket = io("https://twondtwinegametest-1.onrender.com");
-    } catch(e) {
-      console.error("Could not connect to the server.", e);
-    }
-
-    // --- Listen for Updates ---
-    if (window.socket) {
-      window.socket.on('stateUpdated', (newGameState) => {
+      // --- LISTEN FOR UPDATES (FINAL VERSION) ---
+      socket.on('stateUpdated', (newGameState) => {
         console.log('Received new state from server:', newGameState);
-        State.variables.protagonist = newGameState.protagonist;
         
+        // This is the key change. We pass the data to Twine via an event.
+        // We are NOT setting State.variables here anymore.
+        $(document).trigger({
+          type: ':receiveServerState',
+          state: newGameState 
+        });
+      });
+
+      socket.on('connect', () => {
+        console.log('Successfully connected to the server with ID:', socket.id);
+      });
+
+      socket.on('connect_error', (err) => {
+        console.error('Connection failed:', err.message);
       });
     }
+  } catch (e) {
+    console.error("Socket.IO client not found or failed to load.", e);
+    // You could alert the player here if the connection is critical
+    // alert("Error: Could not connect to the multiplayer server.");
+  }
+}
+
+/* --- SEND UPDATES --- */
+// A clean function to send our protagonist choice to the server.
+function updateProtagonistOnServer(choice) {
+  if (window.socket && window.socket.connected) {
+    console.log(`Sending protagonist update to server: ${choice}`);
+    window.socket.emit('updateState', { protagonist: choice });
+  } else {
+    console.warn("Socket not connected. Cannot send update.");
+  }
 }</script><tw-passagedata pid="1" name="Start" tags="" position="475,200" size="100,100">:: Start
 
 &lt;&lt;set $localProtagonist to $protagonist&gt;&gt;
@@ -210,18 +193,28 @@ The current GLOBAL value on the server is: $protagonist
 
 [[Go back to Start to sync with the global state|Start]]
 [[Make another choice|EditProtagonist]]</tw-passagedata><tw-passagedata pid="4" name="StoryInit" tags="" position="600,175" size="100,100">:: StoryInit
-
-/* This tag prevents this passage from appearing in the story history. */
 &lt;&lt;nobr&gt;&gt;
+    /* Call the JavaScript function to connect to the server. */
+    &lt;&lt;run setupSocket()&gt;&gt;
+
+    /* Flag to check if we&#39;ve received the first state from the server. */
     &lt;&lt;set $serverStateReceived to false&gt;&gt;
+
+    /* 
+       This is the NEW, ROBUST LISTENER.
+       It listens for the &#39;:receiveServerState&#39; event from JavaScript.
+    */
     &lt;&lt;script&gt;&gt;
-        /* 
-           This is a &quot;listener&quot;. We are telling Twine:
-           &quot;When the event &#39;serverStateReady&#39; happens, set the Twine variable
-           $serverStateReceived to true and then move to the &#39;Start&#39; passage.&quot;
-        */
-        $(document).on(&#39;:serverStateReady&#39;, function () {
+        $(document).one(&#39;:receiveServerState&#39;, function (ev) {
+            /* 1. Set the variable using the data from the event (ev.state) */
+            State.variables.protagonist = ev.state.protagonist;
+
+            /* 2. Set our flag to true */
             State.variables.serverStateReceived = true;
+            
+            console.log(&quot;Twine has received the initial state and set $protagonist to: &quot; + State.variables.protagonist);
+
+            /* 3. NOW it is safe to go to the Start passage. */
             Engine.play(&#39;Start&#39;);
         });
     &lt;&lt;/script&gt;&gt;
